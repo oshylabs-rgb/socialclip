@@ -1,12 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Download, Play, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAppStore } from "@/lib/store";
+import type { VideoProps } from "@/remotion/types";
+
+const VideoPlayer = dynamic(() => import("@/components/video-player").then((m) => m.VideoPlayer), {
+  ssr: false,
+  loading: () => <div className="bg-muted flex items-center justify-center h-64 rounded-xl">Loading player...</div>,
+});
 
 export default function PreviewPage() {
   const router = useRouter();
@@ -42,44 +49,39 @@ export default function PreviewPage() {
         {/* Preview area */}
         <div className="lg:col-span-2">
           <Card className="overflow-hidden">
-            <div className="bg-muted relative" style={{ aspectRatio: `${current.width}/${current.height}`, maxHeight: 500 }}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={current.id}
-                  className="absolute inset-0 flex flex-col items-center justify-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {/* Scene preview mockup */}
-                  <div className="w-full h-full flex flex-col items-center justify-center p-8 relative overflow-hidden">
-                    <div
-                      className="absolute inset-0 opacity-20"
-                      style={{
-                        background: brand
-                          ? `linear-gradient(135deg, ${brand.colors[0]}, ${brand.colors[1] || brand.colors[0]})`
-                          : "linear-gradient(135deg, #7c3aed, #06b6d4)",
-                      }}
-                    />
-                    <div className="relative z-10 text-center space-y-3">
-                      <h2 className="text-2xl font-bold text-foreground">{brand?.name}</h2>
-                      <p className="text-muted-foreground">{brand?.tagline}</p>
-                      {scenes[0] && (
-                        <p className="text-sm text-foreground/80 mt-4 italic">
-                          &ldquo;{scenes[0].script}&rdquo;
-                        </p>
-                      )}
-                      <div className="flex items-center justify-center gap-2 mt-4">
-                        <Play className="h-10 w-10 text-primary opacity-60" />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {current.width}×{current.height} • {current.label}
-                      </p>
-                    </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {brand && scenes.length > 0 ? (
+                  <VideoPlayer
+                    videoProps={{
+                      brandName: brand.name,
+                      tagline: brand.tagline,
+                      colors: brand.colors,
+                      cta: brand.cta,
+                      scenes: scenes.map((s) => ({
+                        title: s.title,
+                        script: s.script,
+                        duration: s.duration,
+                        visualDescription: s.visualDescription,
+                      })),
+                      width: current.width,
+                      height: current.height,
+                    }}
+                    width={current.width}
+                    height={current.height}
+                  />
+                ) : (
+                  <div className="bg-muted flex items-center justify-center h-64 rounded-xl text-muted-foreground">
+                    No video data
                   </div>
-                </motion.div>
-              </AnimatePresence>
-            </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
 
             {/* Nav */}
             <div className="flex items-center justify-between p-4 border-t border-border">

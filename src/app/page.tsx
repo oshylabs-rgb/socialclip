@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Upload, Sparkles, Film, Download, Zap } from "lucide-react";
+import { ArrowRight, Upload, Sparkles, Film, Download, Zap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import { mockBrand, mockScenes, mockAssets } from "@/lib/mock-data";
@@ -13,12 +13,40 @@ export default function Home() {
   const { setUrl, url, setDemoMode, setBrand, setScenes, setAssets, setStatus } = useAppStore();
   const [localUrl, setLocalUrl] = useState("");
 
-  const handleGenerate = useCallback(() => {
-    if (localUrl.trim()) {
-      setUrl(localUrl.trim());
-    }
+  const [loading, setLoading] = useState(false);
+
+  const handleGenerate = useCallback(async () => {
+    const trimmed = localUrl.trim();
+    if (!trimmed) return;
+    setUrl(trimmed);
+    setStatus("analyzing");
+    setLoading(true);
     router.push("/dashboard");
-  }, [localUrl, setUrl, router]);
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Generation failed");
+      }
+      const data = await res.json();
+      setBrand(data.brand);
+      setScenes(data.scenes);
+      setAssets(data.assets);
+      if (data.projectId) useAppStore.getState().setProjectId(data.projectId);
+      setStatus("complete");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      useAppStore.getState().setError(msg);
+      setStatus("error");
+    } finally {
+      setLoading(false);
+    }
+  }, [localUrl, setUrl, setStatus, setBrand, setScenes, setAssets, router]);
 
   const handleDemo = useCallback(() => {
     setDemoMode(true);
@@ -70,8 +98,8 @@ export default function Home() {
             onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
             className="flex-1 h-12 rounded-lg border border-border bg-card px-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <Button size="lg" onClick={handleGenerate}>
-            Generate <ArrowRight className="h-4 w-4" />
+          <Button size="lg" onClick={handleGenerate} disabled={loading || !localUrl.trim()}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Generate <ArrowRight className="h-4 w-4" /></>}
           </Button>
         </motion.div>
 
