@@ -2,7 +2,9 @@ import OpenAI from "openai";
 import type { ScrapedData } from "./scraper";
 import type { BrandData, Scene, GeneratedAsset } from "./store";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 const BRAND_PROMPT = `You are a social media marketing expert. Analyze the following website data and extract brand information.
 
@@ -51,7 +53,7 @@ Keywords: ${scraped.metaKeywords.join(", ")}
 Theme Color: ${scraped.themeColor || "none"}
 Body Text (excerpt): ${scraped.bodyText.slice(0, 2000)}`;
 
-  const res = await openai.chat.completions.create({
+  const res = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: BRAND_PROMPT },
@@ -73,7 +75,7 @@ Audience: ${brand.audience}
 Features: ${brand.features.join(", ")}
 CTA: ${brand.cta}`;
 
-  const res = await openai.chat.completions.create({
+  const res = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: SCENES_PROMPT },
