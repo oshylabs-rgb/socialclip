@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeUrl } from "@/lib/scraper";
 import { analyzeBrand, generateScenes, buildAssetList } from "@/lib/ai";
+import { normalizeUrl } from "@/lib/normalize-url";
 import { db } from "@/lib/db";
 import { projects, scenes as scenesTable, generatedAssets } from "@/lib/db/schema";
 
@@ -12,8 +13,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
+    let normalizedUrl: string;
+    try {
+      normalizedUrl = normalizeUrl(url);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Invalid URL";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+
     // Step 1: Scrape
-    const scraped = await scrapeUrl(url);
+    const scraped = await scrapeUrl(normalizedUrl);
 
     // Step 2: Analyze brand
     const brand = await analyzeBrand(scraped);
@@ -29,7 +38,7 @@ export async function POST(req: NextRequest) {
     try {
       const [project] = await db
         .insert(projects)
-        .values({ url, brandData: brand, status: "complete" })
+        .values({ url: normalizedUrl, brandData: brand, status: "complete" })
         .returning();
       projectId = project.id;
 
