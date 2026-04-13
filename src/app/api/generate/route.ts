@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeUrl } from "@/lib/scraper";
 import { analyzeBrand, generateScenes, buildAssetList } from "@/lib/ai";
 import { normalizeUrl } from "@/lib/normalize-url";
+import { mockBrand, mockScenes, mockAssets } from "@/lib/mock-data";
 import { db } from "@/lib/db";
 import { projects, scenes as scenesTable, generatedAssets } from "@/lib/db/schema";
 
@@ -21,17 +22,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
-    // Step 1: Scrape
-    const scraped = await scrapeUrl(normalizedUrl);
+    const hasOpenAI = !!process.env.OPENAI_API_KEY;
 
-    // Step 2: Analyze brand
-    const brand = await analyzeBrand(scraped);
+    // Step 1: Scrape (always attempt — no API key needed)
+    let scraped;
+    try {
+      scraped = await scrapeUrl(normalizedUrl);
+    } catch {
+      scraped = null;
+    }
 
-    // Step 3: Generate scenes
-    const sceneList = await generateScenes(brand);
+    let brand;
+    let sceneList;
+    let assetList;
+    let demo = false;
 
-    // Step 4: Build asset list
-    const assetList = buildAssetList();
+    if (hasOpenAI && scraped) {
+      // Step 2: Analyze brand
+      brand = await analyzeBrand(scraped);
+      // Step 3: Generate scenes
+      sceneList = await generateScenes(brand);
+      // Step 4: Build asset list
+      assetList = buildAssetList();
+    } else {
+      // Fallback: use mock data enriched with scraped title if available
+      demo = true;
+      brand = {
+        ...mockBrand,
+        ...(scraped?.title ? { name: scraped.title } : {}),
+        ...(scraped?.description ? { tagline: scraped.description } : {}),
+      };
+      sceneList = mockScenes;
+      assetList = mockAssets;
+    }
 
     // Step 5: Persist to DB
     let projectId: string | null = null;
@@ -76,6 +99,7 @@ export async function POST(req: NextRequest) {
       brand,
       scenes: sceneList,
       assets: assetList.map((a) => ({ ...a, status: "done" })),
+      ...(demo ? { demo: true, message: "Demo mode active: OPENAI_API_KEY is not set." } : {}),
     });
   } catch (e: unknown) {
     console.error("Generate error:", e);
