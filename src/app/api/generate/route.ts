@@ -42,17 +42,19 @@ export async function POST(req: NextRequest) {
     if (hasOpenAI && scraped) {
       // Step 2: Analyze brand (with optional file context)
       brand = await analyzeBrand(scraped, extraContext);
-      // Step 3: Generate scenes
-      sceneList = await generateScenes(brand);
+      // Step 3: Generate scenes (pass scraped data for richer context)
+      sceneList = await generateScenes(brand, scraped);
       // Step 4: Build asset list
       assetList = buildAssetList();
     } else {
-      // Fallback: use mock data enriched with scraped title if available
+      // Fallback: use mock data enriched with scraped data if available
       demo = true;
       brand = {
         ...mockBrand,
-        ...(scraped?.title ? { name: scraped.title } : {}),
+        ...(scraped?.title ? { name: scraped.ogSiteName || scraped.title } : {}),
         ...(scraped?.description ? { tagline: scraped.description } : {}),
+        ...(scraped?.ctaButtons?.length ? { cta: scraped.ctaButtons[0] } : {}),
+        ...(scraped?.features?.length ? { features: scraped.features.slice(0, 5) } : {}),
       };
       sceneList = mockScenes;
       assetList = mockAssets;
