@@ -8,7 +8,7 @@ import { projects, scenes as scenesTable, generatedAssets } from "@/lib/db/schem
 
 export async function POST(req: NextRequest) {
   try {
-    const { url } = await req.json();
+    const { url, fileContext } = await req.json();
 
     if (!url) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -37,9 +37,11 @@ export async function POST(req: NextRequest) {
     let assetList;
     let demo = false;
 
+    const extraContext = typeof fileContext === "string" ? fileContext : "";
+
     if (hasOpenAI && scraped) {
-      // Step 2: Analyze brand
-      brand = await analyzeBrand(scraped);
+      // Step 2: Analyze brand (with optional file context)
+      brand = await analyzeBrand(scraped, extraContext);
       // Step 3: Generate scenes
       sceneList = await generateScenes(brand);
       // Step 4: Build asset list

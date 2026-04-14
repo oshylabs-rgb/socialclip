@@ -45,13 +45,17 @@ Rules:
 - Keep scripts punchy and under 15 words each
 - Visual descriptions should be specific and actionable`;
 
-export async function analyzeBrand(scraped: ScrapedData): Promise<BrandData> {
-  const content = `Website Title: ${scraped.title}
+export async function analyzeBrand(scraped: ScrapedData, fileContext?: string): Promise<BrandData> {
+  let content = `Website Title: ${scraped.title}
 Description: ${scraped.description}
 Headings: ${scraped.headings.join(", ")}
 Keywords: ${scraped.metaKeywords.join(", ")}
 Theme Color: ${scraped.themeColor || "none"}
 Body Text (excerpt): ${scraped.bodyText.slice(0, 2000)}`;
+
+  if (fileContext) {
+    content += `\n\nAdditional context from uploaded files:\n${fileContext.slice(0, 3000)}`;
+  }
 
   const res = await getOpenAI().chat.completions.create({
     model: "gpt-4o",

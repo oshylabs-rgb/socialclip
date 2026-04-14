@@ -1,19 +1,40 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Upload, Sparkles, Film, Download, Zap, Loader2 } from "lucide-react";
+import { ArrowRight, Upload, Sparkles, Film, Download, Zap, Loader2, X, FileText, Image, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import { mockBrand, mockScenes, mockAssets } from "@/lib/mock-data";
+import type { UploadedFile } from "@/lib/store";
+
+const ACCEPT = ".pdf,.docx,.md,.txt,.png,.jpg,.jpeg,.webp,.mp4,.mov,.webm";
+
+function fileIcon(name: string) {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  if (["png", "jpg", "jpeg", "webp"].includes(ext)) return Image;
+  if (["mp4", "mov", "webm"].includes(ext)) return Video;
+  return FileText;
+}
 
 export default function Home() {
   const router = useRouter();
-  const { setUrl, url, setDemoMode, setBrand, setScenes, setAssets, setStatus } = useAppStore();
+  const { setUrl, setDemoMode, setBrand, setScenes, setAssets, setStatus, setUploadedFiles, setFileContext } = useAppStore();
   const [localUrl, setLocalUrl] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
+
+  const handleFiles = useCallback((newFiles: FileList | null) => {
+    if (!newFiles) return;
+    setFiles((prev) => [...prev, ...Array.from(newFiles)]);
+  }, []);
+
+  const removeFile = useCallback((idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
 
   const handleGenerate = useCallback(async () => {
     const trimmed = localUrl.trim();
@@ -24,10 +45,35 @@ export default function Home() {
     router.push("/dashboard");
 
     try {
+      // Step 1: Upload files if any
+      let fileContext = "";
+      let uploadedResults: UploadedFile[] = [];
+
+      if (files.length > 0) {
+        const fd = new FormData();
+        files.forEach((f) => fd.append("files", f));
+        const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          fileContext = uploadData.combinedContext || "";
+          uploadedResults = (uploadData.files || []).map((f: { name: string; type: string; size: number; status: string; context: string }) => ({
+            name: f.name,
+            type: f.type,
+            size: f.size,
+            status: f.status as "parsed" | "error",
+            context: f.context,
+          }));
+        }
+      }
+
+      setUploadedFiles(uploadedResults);
+      setFileContext(fileContext);
+
+      // Step 2: Generate with URL + file context
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: trimmed }),
+        body: JSON.stringify({ url: trimmed, fileContext }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -46,7 +92,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [localUrl, setUrl, setStatus, setBrand, setScenes, setAssets, router]);
+  }, [localUrl, files, setUrl, setStatus, setBrand, setScenes, setAssets, setUploadedFiles, setFileContext, router]);
 
   const handleDemo = useCallback(() => {
     setDemoMode(true);
@@ -118,10 +164,45 @@ export default function Home() {
           <span className="text-muted-foreground text-xs">or</span>
           <label className="text-sm text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1">
             <Upload className="h-3.5 w-3.5" />
-            Upload docs
-            <input type="file" className="hidden" multiple accept=".pdf,.docx,.md,.txt" />
+            Upload files
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              multiple
+              accept={ACCEPT}
+              onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+            />
           </label>
         </motion.div>
+
+        {/* File chips */}
+        {files.length > 0 && (
+          <motion.div
+            className="mt-4 flex flex-wrap items-center justify-center gap-2 max-w-xl mx-auto"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+          >
+            {files.map((f, i) => {
+              const Icon = fileIcon(f.name);
+              return (
+                <span
+                  key={`${f.name}-${i}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground"
+                >
+                  <Icon className="h-3 w-3" />
+                  {f.name.length > 25 ? f.name.slice(0, 22) + "..." : f.name}
+                  <button onClick={() => removeFile(i)} className="hover:text-foreground ml-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+            <span className="text-xs text-muted-foreground">
+              {files.length} file{files.length !== 1 ? "s" : ""} selected
+            </span>
+          </motion.div>
+        )}
       </section>
 
       {/* Features */}

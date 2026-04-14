@@ -22,6 +22,14 @@ export interface BrandData {
   screenshots: string[];
 }
 
+export interface UploadedFile {
+  name: string;
+  type: string;
+  size: number;
+  status: "pending" | "parsed" | "error";
+  context: string;
+}
+
 export interface GeneratedAsset {
   id: string;
   format: "reel" | "story" | "square" | "landscape" | "linkedin";
@@ -61,6 +69,12 @@ export interface AppState {
   setAssets: (a: GeneratedAsset[]) => void;
   updateAsset: (id: string, patch: Partial<GeneratedAsset>) => void;
 
+  // Uploads
+  uploadedFiles: UploadedFile[];
+  setUploadedFiles: (f: UploadedFile[]) => void;
+  fileContext: string;
+  setFileContext: (c: string) => void;
+
   // Dark mode
   darkMode: boolean;
   toggleDarkMode: () => void;
@@ -82,6 +96,8 @@ const initialState = {
   brand: null as BrandData | null,
   scenes: [] as Scene[],
   assets: [] as GeneratedAsset[],
+  uploadedFiles: [] as UploadedFile[],
+  fileContext: "",
   darkMode: true,
   demoMode: false,
 };
@@ -101,6 +117,8 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       assets: state.assets.map((a) => (a.id === id ? { ...a, ...patch } : a)),
     })),
+  setUploadedFiles: (uploadedFiles) => set({ uploadedFiles }),
+  setFileContext: (fileContext) => set({ fileContext }),
   toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
   setDemoMode: (demoMode) => set({ demoMode }),
   reset: () => set(initialState),

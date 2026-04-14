@@ -13,6 +13,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  FileText,
+  Image,
+  Video,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -20,7 +24,7 @@ import { useAppStore } from "@/lib/store";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { brand, scenes, assets, status, demoMode, url, error } = useAppStore();
+  const { brand, scenes, assets, status, demoMode, url, error, uploadedFiles } = useAppStore();
 
   if (!brand && status === "idle") {
     return (
@@ -175,6 +179,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Uploaded Files */}
+      {uploadedFiles.length > 0 && (
+        <div className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" /> Uploaded Context ({uploadedFiles.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {uploadedFiles.map((f, i) => {
+                  const ext = f.name.split(".").pop()?.toLowerCase() || "";
+                  const Icon = ["png", "jpg", "jpeg", "webp"].includes(ext)
+                    ? Image
+                    : ["mp4", "mov", "webm"].includes(ext)
+                    ? Video
+                    : FileText;
+                  return (
+                    <div
+                      key={`${f.name}-${i}`}
+                      className={`rounded-lg border p-3 text-sm ${
+                        f.status === "error"
+                          ? "border-destructive/30 bg-destructive/5"
+                          : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium truncate">{f.name}</span>
+                        {f.status === "error" ? (
+                          <XCircle className="h-3.5 w-3.5 text-destructive shrink-0 ml-auto" />
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 ml-auto" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {(f.size / 1024).toFixed(1)}KB &middot; {f.status === "parsed" ? "Parsed" : f.context}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Assets */}
       <div className="mt-8">
